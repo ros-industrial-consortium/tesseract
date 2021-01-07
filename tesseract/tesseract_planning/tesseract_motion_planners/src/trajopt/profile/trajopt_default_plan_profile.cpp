@@ -99,7 +99,7 @@ TrajOptDefaultPlanProfile::TrajOptDefaultPlanProfile(const tinyxml2::XMLElement&
   }
 }
 void TrajOptDefaultPlanProfile::apply(trajopt::ProblemConstructionInfo& pci,
-                                      const Eigen::Isometry3d& cartesian_waypoint,
+                                      const CartesianWaypoint& cartesian_waypoint,
                                       const Instruction& parent_instruction,
                                       const ManipulatorInfo& manip_info,
                                       const std::vector<std::string>& active_links,
@@ -119,6 +119,9 @@ void TrajOptDefaultPlanProfile::apply(trajopt::ProblemConstructionInfo& pci,
   auto it = std::find(active_links.begin(), active_links.end(), mi.working_frame);
   if (it != active_links.end())
   {
+    if (cartesian_waypoint.isToleranced())
+      CONSOLE_BRIDGE_logWarn("Toleranced cartesian waypoints are not supported in this version of TrajOpt.");
+
     if (mi.tcp.isExternal() && mi.tcp.isString())
     {
       // If external, the part is attached to the robot so working frame is passed as link instead of target frame
@@ -170,13 +173,18 @@ void TrajOptDefaultPlanProfile::apply(trajopt::ProblemConstructionInfo& pci,
 }
 
 void TrajOptDefaultPlanProfile::apply(trajopt::ProblemConstructionInfo& pci,
-                                      const Eigen::VectorXd& joint_waypoint,
+                                      const JointWaypoint& joint_waypoint,
                                       const Instruction& /*parent_instruction*/,
                                       const ManipulatorInfo& /*manip_info*/,
                                       const std::vector<std::string>& /*active_links*/,
                                       int index) const
 {
-  auto ti = createJointWaypointTermInfo(joint_waypoint, index, joint_coeff, term_type);
+  trajopt::TermInfo::Ptr ti;
+  if (joint_waypoint.isToleranced())
+    ti = createTolerancedJointWaypointTermInfo(
+        joint_waypoint, joint_waypoint.lower_tolerance, joint_waypoint.upper_tolerance, index, joint_coeff, term_type);
+  else
+    ti = createJointWaypointTermInfo(joint_waypoint, index, joint_coeff, term_type);
 
   if (term_type == trajopt::TermType::TT_CNT)
     pci.cnt_infos.push_back(ti);

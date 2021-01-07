@@ -384,6 +384,7 @@ struct ContactTestData
  */
 enum class CollisionEvaluatorType
 {
+  NONE,
   DISCRETE,
   LVS_DISCRETE,
   CONTINUOUS,

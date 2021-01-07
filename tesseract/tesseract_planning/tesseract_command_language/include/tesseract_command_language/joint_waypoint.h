@@ -265,13 +265,29 @@ public:
   inline operator Eigen::Ref<Eigen::VectorXd>() { return Eigen::Ref<Eigen::VectorXd>(waypoint); }
 
   //////////////////////////////////
-  // Cartesian Waypoint Container //
+  // Joint Waypoint Container //
   //////////////////////////////////
 
 #endif  // SWIG
 
   Eigen::VectorXd waypoint;
   std::vector<std::string> joint_names;
+  /** @brief Joint distance below waypoint that is allowed. Each element should be <= 0 */
+  Eigen::VectorXd lower_tolerance;
+  /** @brief Joint distance above waypoint that is allowed. Each element should be >= 0 */
+  Eigen::VectorXd upper_tolerance;
+
+  bool isToleranced() const
+  {
+    // Check if they are empty
+    if (lower_tolerance.size() == 0 || upper_tolerance.size() == 0)
+      return false;
+
+    // Check if they are close to 0
+    Eigen::VectorXd range = upper_tolerance - lower_tolerance;
+    double sum = range.sum();
+    return (sum < 1e-5);
+  }
 };
 }  // namespace tesseract_planning
 

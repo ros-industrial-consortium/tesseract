@@ -18,7 +18,10 @@ find_package(tesseract_environment REQUIRED)
 find_package(tesseract_common REQUIRED)
 find_package(tesseract_command_language REQUIRED)
 find_package(trajopt REQUIRED)
+find_package(trajopt_ifopt REQUIRED)
 find_package(trajopt_sco REQUIRED)
+find_package(trajopt_sqp REQUIRED)
+find_package(cmake_common_scripts REQUIRED)
 # serialization was required because ompl does not include find_dependency for its required dependencies
 find_package(Boost REQUIRED COMPONENTS serialization system filesystem program_options)
 
@@ -166,12 +169,35 @@ target_include_directories(${PROJECT_NAME}_trajopt SYSTEM PUBLIC
     ${EIGEN3_INCLUDE_DIRS}
     ${Boost_INCLUDE_DIRS})
 
+# Trajopt_ifopt Planner
+add_library(${PROJECT_NAME}_trajopt_ifopt SHARED
+  src/trajopt_ifopt/trajopt_ifopt_motion_planner.cpp
+  src/trajopt_ifopt/trajopt_ifopt_utils.cpp
+  src/trajopt_ifopt/profile/trajopt_ifopt_default_plan_profile.cpp
+  src/trajopt_ifopt/profile/trajopt_ifopt_default_composite_profile.cpp
+  src/trajopt_ifopt/problem_generators/default_problem_generator.cpp)
+target_link_libraries(${PROJECT_NAME}_trajopt_ifopt PUBLIC ${Boost_LIBRARIES} ${PROJECT_NAME}_core trajopt::trajopt_ifopt trajopt::trajopt_sqp)
+target_compile_options(${PROJECT_NAME}_trajopt_ifopt PRIVATE ${TESSERACT_COMPILE_OPTIONS_PRIVATE})
+target_compile_options(${PROJECT_NAME}_trajopt_ifopt PUBLIC ${TESSERACT_COMPILE_OPTIONS_PUBLIC})
+target_compile_definitions(${PROJECT_NAME}_trajopt_ifopt PUBLIC ${TESSERACT_COMPILE_DEFINITIONS})
+target_clang_tidy(${PROJECT_NAME}_trajopt_ifopt ARGUMENTS ${TESSERACT_CLANG_TIDY_ARGS} ENABLE ${TESSERACT_ENABLE_CLANG_TIDY})
+target_cxx_version(${PROJECT_NAME}_trajopt_ifopt PUBLIC VERSION ${TESSERACT_CXX_VERSION})
+target_code_coverage(${PROJECT_NAME}_trajopt_ifopt ALL EXCLUDE ${COVERAGE_EXCLUDE} ENABLE ${TESSERACT_ENABLE_TESTING})
+target_include_directories(${PROJECT_NAME}_trajopt_ifopt PUBLIC
+    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
+    "$<INSTALL_INTERFACE:include>")
+target_include_directories(${PROJECT_NAME}_trajopt_ifopt SYSTEM PUBLIC
+    ${EIGEN3_INCLUDE_DIRS}
+    ${Boost_INCLUDE_DIRS})
+
 configure_package(NAMESPACE tesseract
                   TARGETS ${PROJECT_NAME}_core
                           ${PROJECT_NAME}_descartes
                           ${PROJECT_NAME}_ompl
                           ${PROJECT_NAME}_simple
-                          ${PROJECT_NAME}_trajopt)
+                          ${PROJECT_NAME}_trajopt
+                          ${PROJECT_NAME}_trajopt_ifopt
+                  )
 
 # Mark cpp header files for installation
 install(DIRECTORY include/${PROJECT_NAME}

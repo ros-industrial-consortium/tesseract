@@ -264,6 +264,24 @@ public:
 
   /** @brief The Cartesian Waypoint */
   Eigen::Isometry3d waypoint;
+  /** @brief Distance below waypoint that is allowed. Should be size = 6. First 3 elements are dx, dy, dz. The last 3
+   * elements are angle axis error allowed (Eigen::AngleAxisd.axis() * Eigen::AngleAxisd.angle()) */
+  Eigen::VectorXd lower_tolerance;
+  /** @brief Distance above waypoint that is allowed. Should be size = 6. First 3 elements are dx, dy, dz. The last 3
+   * elements are angle axis error allowed (Eigen::AngleAxisd.axis() * Eigen::AngleAxisd.angle())*/
+  Eigen::VectorXd upper_tolerance;
+
+  bool isToleranced() const
+  {
+    // Check if they are empty
+    if (lower_tolerance.size() == 0 || upper_tolerance.size() == 0)
+      return false;
+
+    // Check if they are close to 0
+    Eigen::VectorXd range = upper_tolerance - lower_tolerance;
+    double sum = range.sum();
+    return (sum < 1e-5);
+  }
 };
 
 }  // namespace tesseract_planning

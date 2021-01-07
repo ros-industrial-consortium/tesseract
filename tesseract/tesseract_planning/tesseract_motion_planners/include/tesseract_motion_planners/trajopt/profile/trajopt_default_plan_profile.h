@@ -33,6 +33,8 @@ TESSERACT_COMMON_IGNORE_WARNINGS_PUSH
 #include <Eigen/Geometry>
 TESSERACT_COMMON_IGNORE_WARNINGS_POP
 
+#include <tesseract_command_language/cartesian_waypoint.h>
+#include <tesseract_command_language/joint_waypoint.h>
 #include <tesseract_motion_planners/trajopt/profile/trajopt_profile.h>
 
 #ifdef SWIG
@@ -81,14 +83,14 @@ public:
       constraint_error_functions;
 
   void apply(trajopt::ProblemConstructionInfo& pci,
-             const Eigen::Isometry3d& cartesian_waypoint,
+             const CartesianWaypoint& cartesian_waypoint,
              const Instruction& parent_instruction,
              const ManipulatorInfo& manip_info,
              const std::vector<std::string>& active_links,
              int index) const override;
 
   void apply(trajopt::ProblemConstructionInfo& pci,
-             const Eigen::VectorXd& joint_waypoint,
+             const JointWaypoint& joint_waypoint,
              const Instruction& parent_instruction,
              const ManipulatorInfo& manip_info,
              const std::vector<std::string>& active_links,

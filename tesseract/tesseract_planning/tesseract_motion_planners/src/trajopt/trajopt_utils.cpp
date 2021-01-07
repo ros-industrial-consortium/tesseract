@@ -138,6 +138,32 @@ trajopt::TermInfo::Ptr createJointWaypointTermInfo(const Eigen::VectorXd& j_wp,
   return joint_info;
 }
 
+trajopt::TermInfo::Ptr createTolerancedJointWaypointTermInfo(const Eigen::VectorXd& j_wp,
+                                                             const Eigen::VectorXd& lower_tol,
+                                                             const Eigen::VectorXd& upper_tol,
+                                                             int index,
+                                                             const Eigen::VectorXd& coeffs,
+                                                             trajopt::TermType type)
+{
+  auto joint_info = std::make_shared<trajopt::JointPosTermInfo>();
+  if (coeffs.size() == 1)
+    joint_info->coeffs = std::vector<double>(static_cast<std::size_t>(j_wp.size()), coeffs(0));
+  else if (coeffs.size() == j_wp.size())
+    joint_info->coeffs = std::vector<double>(coeffs.data(), coeffs.data() + coeffs.rows() * coeffs.cols());
+
+  joint_info->targets = std::vector<double>(j_wp.data(), j_wp.data() + j_wp.rows() * j_wp.cols());
+  joint_info->lower_tols =
+      std::vector<double>(lower_tol.data(), lower_tol.data() + lower_tol.rows() * lower_tol.cols());
+  joint_info->upper_tols =
+      std::vector<double>(upper_tol.data(), upper_tol.data() + upper_tol.rows() * upper_tol.cols());
+  joint_info->first_step = index;
+  joint_info->last_step = index;
+  joint_info->name = "joint_waypoint_" + std::to_string(index);
+  joint_info->term_type = type;
+
+  return joint_info;
+}
+
 trajopt::TermInfo::Ptr createCollisionTermInfo(int start_index,
                                                int end_index,
                                                double collision_safety_margin,

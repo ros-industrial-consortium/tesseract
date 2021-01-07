@@ -140,8 +140,9 @@ DefaultTrajoptProblemGenerator(const std::string& name,
   else if (isJointWaypoint(start_waypoint) || isStateWaypoint(start_waypoint))
   {
     assert(checkJointPositionFormat(pci->kin->getJointNames(), start_waypoint));
-    const Eigen::VectorXd& position = getJointPosition(start_waypoint);
-    start_plan_profile->apply(*pci, position, *start_instruction, composite_mi, active_links, index);
+    JointWaypoint position_wp;
+    position_wp.waypoint = getJointPosition(start_waypoint);
+    start_plan_profile->apply(*pci, position_wp, *start_instruction, composite_mi, active_links, index);
 
     // Add to fixed indices
     fixed_steps.push_back(index);
@@ -177,7 +178,7 @@ DefaultTrajoptProblemGenerator(const std::string& name,
       std::string profile = getProfileString(plan_instruction->getProfile(), name, request.plan_profile_remapping);
       TrajOptPlanProfile::ConstPtr cur_plan_profile =
           getProfile<TrajOptPlanProfile>(profile, plan_profiles, std::make_shared<TrajOptDefaultPlanProfile>());
-      if (!start_plan_profile)
+      if (!cur_plan_profile)
         throw std::runtime_error("TrajOptPlannerUniversalConfig: Invalid profile");
 
       if (plan_instruction->isLinear())
@@ -234,7 +235,8 @@ DefaultTrajoptProblemGenerator(const std::string& name,
         else if (isJointWaypoint(plan_instruction->getWaypoint()) || isStateWaypoint(plan_instruction->getWaypoint()))
         {
           assert(checkJointPositionFormat(pci->kin->getJointNames(), plan_instruction->getWaypoint()));
-          const Eigen::VectorXd& cur_position = getJointPosition(plan_instruction->getWaypoint());
+          JointWaypoint cur_position;
+          cur_position.waypoint = getJointPosition(plan_instruction->getWaypoint());
           Eigen::Isometry3d cur_pose = Eigen::Isometry3d::Identity();
           if (!pci->kin->calcFwdKin(cur_pose, cur_position))
             throw std::runtime_error("TrajOptPlannerUniversalConfig: failed to solve forward kinematics!");
@@ -299,7 +301,8 @@ DefaultTrajoptProblemGenerator(const std::string& name,
         if (isJointWaypoint(plan_instruction->getWaypoint()) || isStateWaypoint(plan_instruction->getWaypoint()))
         {
           assert(checkJointPositionFormat(pci->kin->getJointNames(), plan_instruction->getWaypoint()));
-          const Eigen::VectorXd& cur_position = getJointPosition(plan_instruction->getWaypoint());
+          JointWaypoint cur_position;
+          cur_position.waypoint = getJointPosition(plan_instruction->getWaypoint());
 
           // Add intermediate points with path costs and constraints
           for (std::size_t s = 0; s < seed_composite->size() - 1; ++s)
