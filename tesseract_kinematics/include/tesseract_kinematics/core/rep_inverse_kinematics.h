@@ -35,6 +35,7 @@ TESSERACT_COMMON_IGNORE_WARNINGS_POP
 
 #include <tesseract_kinematics/core/inverse_kinematics.h>
 #include <tesseract_kinematics/core/forward_kinematics.h>
+#include <tesseract_kinematics/core/types.h>
 
 #ifdef SWIG
 %shared_ptr(tesseract_kinematics::RobotWithExternalPositionerInvKin)
@@ -68,6 +69,9 @@ public:
   InverseKinematics::Ptr clone() const override;
 
   bool update() override;
+
+  void synchronize(ForwardKinematics::ConstPtr fwd_kin) override;
+  bool isSynchronized() const override;
 
   IKSolutions calcInvKin(const Eigen::Isometry3d& pose, const Eigen::Ref<const Eigen::VectorXd>& seed) const override;
 
@@ -163,22 +167,21 @@ public:
   bool checkInitialized() const;
 
 private:
-  bool initialized_{ false };                               /**< Identifies if the object has been initialized */
-  tesseract_scene_graph::SceneGraph::ConstPtr scene_graph_; /**< Tesseract Scene Graph */
+  bool initialized_{ false };                               /**< @brief Identifies if the object has been initialized */
+  tesseract_scene_graph::SceneGraph::ConstPtr scene_graph_; /**< @brief Tesseract Scene Graph */
+  ForwardKinematics::ConstPtr sync_fwd_kin_;                /**< @brief Synchronized forward kinematics object */
+  std::vector<Eigen::Index> sync_joint_map_;                /**< @brief Synchronized joint solution remapping */
   InverseKinematics::Ptr manip_inv_kin_;
   double manip_reach_{ 0 };
   ForwardKinematics::Ptr positioner_fwd_kin_;
   Eigen::VectorXd positioner_sample_resolution_;
   Eigen::Isometry3d manip_base_to_positioner_base_;
   unsigned dof_;
-  tesseract_common::KinematicLimits limits_;
-  std::vector<std::string> joint_names_;
-  std::vector<std::string> link_names_;
-  std::vector<std::string> active_link_names_;
-  std::vector<Eigen::Index> redundancy_indices_; /**< Joint indicies that have redundancy (ex. revolute) */
+  SynchronizableData data_;      /**< @brief The current data that may be synchronized */
+  SynchronizableData orig_data_; /**< @brief The data prior to synchronization */
   std::vector<Eigen::VectorXd> dof_range_;
-  std::string name_;                                               /**< Name of the kinematic chain */
-  std::string solver_name_{ "RobotWithExternalPositionerInvKin" }; /**< Name of this solver */
+  std::string name_;                                               /**< @brief Name of the kinematic chain */
+  std::string solver_name_{ "RobotWithExternalPositionerInvKin" }; /**< @brief Name of this solver */
 
   /**
    * @brief This used by the clone method

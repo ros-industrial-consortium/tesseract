@@ -38,6 +38,7 @@ TESSERACT_COMMON_IGNORE_WARNINGS_PUSH
 TESSERACT_COMMON_IGNORE_WARNINGS_POP
 
 #include <tesseract_common/types.h>
+#include <tesseract_kinematics/core/forward_kinematics.h>
 
 #ifdef SWIG
 %shared_ptr(tesseract_kinematics::InverseKinematics)
@@ -70,6 +71,18 @@ public:
    * @return True if successful
    */
   virtual bool update() = 0;
+
+  /**
+   * @brief Synchronize inverse data to align with forward kinematics object
+   * @param fwd_kin The forward kinematics object to synchronize with
+   */
+  virtual void synchronize(ForwardKinematics::ConstPtr fwd_kin) = 0;
+
+  /**
+   * @brief Check if inverse kinematics has been synchronized with a forward kinematics object
+   * @return True if synchronized, otherwise False
+   */
+  virtual bool isSynchronized() const = 0;
 
   /**
    * @brief Calculates joint solutions given a pose.

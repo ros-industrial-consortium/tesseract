@@ -37,6 +37,7 @@ TESSERACT_COMMON_IGNORE_WARNINGS_POP
 #include <tesseract_scene_graph/graph.h>
 #include <tesseract_scene_graph/parser/kdl_parser.h>
 #include <tesseract_kinematics/core/utils.h>
+#include <tesseract_kinematics/core/types.h>
 
 namespace tesseract_kinematics
 {
@@ -141,16 +142,10 @@ inline void KDLToEigen(const KDL::JntArray& joints, Eigen::Ref<Eigen::VectorXd> 
  */
 struct KDLChainData
 {
-  KDL::Chain robot_chain;                       /**< KDL Chain object */
-  KDL::Tree kdl_tree;                           /**< KDL tree object */
-  std::string base_name;                        /**< Link name of first link in the kinematic chain */
-  std::string tip_name;                         /**< Link name of last kink in the kinematic chain */
-  std::vector<std::string> joint_list;          /**< List of joint names */
-  std::vector<std::string> link_list;           /**< List of link names */
-  std::vector<std::string> active_link_list;    /**< List of link names that move with changes in joint values */
-  tesseract_common::KinematicLimits limits;     /**< Joint limits, velocity limits, and acceleration limits */
-  std::vector<Eigen::Index> redundancy_indices; /**< Joint indicies that have redundancy (ex. revolute) */
-  std::map<std::string, int> segment_index;     /**< A map from chain link name to kdl chain segment number */
+  KDL::Chain robot_chain;                   /**< KDL Chain object */
+  KDL::Tree kdl_tree;                       /**< KDL tree object */
+  SynchronizableData data;                  /**< Synchronizable data */
+  std::map<std::string, int> segment_index; /**< A map from chain link name to kdl chain segment number */
   std::vector<std::pair<std::string, std::string>> chains; /**< The chains used to create the object */
 };
 
@@ -173,7 +168,7 @@ inline bool parseSceneGraph(KDLChainData& results,
   }
 
   results.chains = chains;
-  results.base_name = chains.front().first;
+  results.data.base_link_name = chains.front().first;
   for (const auto& chain : chains)
   {
     KDL::Chain sub_chain;
@@ -185,22 +180,22 @@ inline bool parseSceneGraph(KDLChainData& results,
     }
     results.robot_chain.addChain(sub_chain);
   }
-  results.tip_name = chains.back().second;
+  results.data.tip_link_name = chains.back().second;
 
-  results.joint_list.resize(results.robot_chain.getNrOfJoints());
-  results.limits.joint_limits.resize(results.robot_chain.getNrOfJoints(), 2);
-  results.limits.velocity_limits.resize(results.robot_chain.getNrOfJoints());
-  results.limits.acceleration_limits.resize(results.robot_chain.getNrOfJoints());
+  results.data.joint_names.resize(results.robot_chain.getNrOfJoints());
+  results.data.limits.joint_limits.resize(results.robot_chain.getNrOfJoints(), 2);
+  results.data.limits.velocity_limits.resize(results.robot_chain.getNrOfJoints());
+  results.data.limits.acceleration_limits.resize(results.robot_chain.getNrOfJoints());
 
-  results.segment_index[results.base_name] = 0;
-  results.link_list.push_back(results.base_name);
-  results.active_link_list.clear();
+  results.segment_index[results.data.base_link_name] = 0;
+  results.data.link_names.push_back(results.data.base_link_name);
+  results.data.active_link_names.clear();
   bool found = false;
   for (unsigned i = 0, j = 0; i < results.robot_chain.getNrOfSegments(); ++i)
   {
     const KDL::Segment& seg = results.robot_chain.getSegment(i);
     const KDL::Joint& jnt = seg.getJoint();
-    results.link_list.push_back(seg.getName());
+    results.data.link_names.push_back(seg.getName());
 
     // KDL segments does not contain the the base link in this list. When calling function that take segmentNr, like
     // JntToCart to get the base link transform you would pass an index of zero and for subsequent links it is
@@ -208,7 +203,7 @@ inline bool parseSceneGraph(KDLChainData& results,
     results.segment_index[seg.getName()] = static_cast<int>(i + 1);
 
     if (found)
-      results.active_link_list.push_back(seg.getName());
+      results.data.active_link_names.push_back(seg.getName());
 
     if (jnt.getType() == KDL::Joint::None)
       continue;
@@ -216,37 +211,37 @@ inline bool parseSceneGraph(KDLChainData& results,
     if (!found)
     {
       found = true;
-      results.active_link_list.push_back(seg.getName());
+      results.data.active_link_names.push_back(seg.getName());
     }
 
-    results.joint_list[j] = jnt.getName();
+    results.data.joint_names[j] = jnt.getName();
     const tesseract_scene_graph::Joint::ConstPtr& joint = scene_graph.getJoint(jnt.getName());
-    results.limits.joint_limits(j, 0) = joint->limits->lower;
-    results.limits.joint_limits(j, 1) = joint->limits->upper;
-    results.limits.velocity_limits(j) = joint->limits->velocity;
-    results.limits.acceleration_limits(j) = joint->limits->acceleration;
+    results.data.limits.joint_limits(j, 0) = joint->limits->lower;
+    results.data.limits.joint_limits(j, 1) = joint->limits->upper;
+    results.data.limits.velocity_limits(j) = joint->limits->velocity;
+    results.data.limits.acceleration_limits(j) = joint->limits->acceleration;
 
     // Need to set limits for continuous joints. TODO: This may not be required
     // by the optimization library but may be nice to have
     if (joint->type == tesseract_scene_graph::JointType::CONTINUOUS &&
         tesseract_common::almostEqualRelativeAndAbs(
-            results.limits.joint_limits(j, 0), results.limits.joint_limits(j, 1), 1e-5))
+            results.data.limits.joint_limits(j, 0), results.data.limits.joint_limits(j, 1), 1e-5))
     {
-      results.limits.joint_limits(j, 0) = -4 * M_PI;
-      results.limits.joint_limits(j, 1) = +4 * M_PI;
+      results.data.limits.joint_limits(j, 0) = -4 * M_PI;
+      results.data.limits.joint_limits(j, 1) = +4 * M_PI;
     }
     ++j;
   }
 
-  results.redundancy_indices.clear();
-  for (std::size_t i = 0; i < results.joint_list.size(); ++i)
+  results.data.redundancy_indices.clear();
+  for (std::size_t i = 0; i < results.data.joint_names.size(); ++i)
   {
-    const auto& joint = scene_graph.getJoint(results.joint_list[i]);
+    const auto& joint = scene_graph.getJoint(results.data.joint_names[i]);
     switch (joint->type)
     {
       case tesseract_scene_graph::JointType::REVOLUTE:
       case tesseract_scene_graph::JointType::CONTINUOUS:
-        results.redundancy_indices.push_back(static_cast<Eigen::Index>(i));
+        results.data.redundancy_indices.push_back(static_cast<Eigen::Index>(i));
         break;
       default:
         break;

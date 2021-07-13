@@ -46,7 +46,58 @@ InverseKinematics::Ptr KDLInvKinChainLMA::clone() const
   return cloned_invkin;
 }
 
-bool KDLInvKinChainLMA::update() { return init(scene_graph_, kdl_data_.base_name, kdl_data_.tip_name, name_); }
+bool KDLInvKinChainLMA::update()
+{
+  if (!init(scene_graph_, orig_data_.base_link_name, orig_data_.tip_link_name, name_))
+    return false;
+
+  synchronize(sync_fwd_kin_);
+
+  return true;
+}
+
+void KDLInvKinChainLMA::synchronize(ForwardKinematics::ConstPtr fwd_kin)
+{
+  if (numJoints() != fwd_kin->numJoints())
+    throw std::runtime_error("Tried to synchronize kinematics objects with different number of joints!");
+
+  if (tesseract_common::isIdentical(orig_data_.joint_names, fwd_kin->getJointNames(), false))
+    throw std::runtime_error("Tried to synchronize kinematics objects with different joint names!");
+
+  if (tesseract_common::isIdentical(orig_data_.link_names, fwd_kin->getLinkNames(), false))
+    throw std::runtime_error("Tried to synchronize kinematics objects with different active link names!");
+
+  if (tesseract_common::isIdentical(orig_data_.active_link_names, fwd_kin->getActiveLinkNames(), false))
+    throw std::runtime_error("Tried to synchronize kinematics objects with different active link names!");
+
+  SynchronizableData local_data;
+  local_data.base_link_name = fwd_kin->getBaseLinkName();
+  local_data.tip_link_name = fwd_kin->getTipLinkName();
+  local_data.joint_names = fwd_kin->getJointNames();
+  local_data.link_names = fwd_kin->getLinkNames();
+  local_data.active_link_names = fwd_kin->getActiveLinkNames();
+  local_data.redundancy_indices = fwd_kin->getRedundancyCapableJointIndices();
+  local_data.limits = fwd_kin->getLimits();
+  if (kdl_data_.data == local_data)
+    return;
+
+  sync_joint_map_.clear();
+  const std::vector<std::string>& joint_names = fwd_kin->getJointNames();
+  if (orig_data_.joint_names != joint_names)
+  {
+    for (std::size_t i = 0; i < joint_names.size(); ++i)
+    {
+      auto it = std::find(orig_data_.joint_names.begin(), orig_data_.joint_names.end(), joint_names[i]);
+      Eigen::Index idx = std::distance(orig_data_.joint_names.begin(), it);
+      sync_joint_map_.push_back(idx);
+    }
+  }
+
+  sync_fwd_kin_ = std::move(fwd_kin);
+  kdl_data_.data = local_data;
+}
+
+bool KDLInvKinChainLMA::isSynchronized() const { return (sync_fwd_kin_ != nullptr); }
 
 IKSolutions KDLInvKinChainLMA::calcInvKinHelper(const Eigen::Isometry3d& pose,
                                                 const Eigen::Ref<const Eigen::VectorXd>& seed,
@@ -87,9 +138,13 @@ IKSolutions KDLInvKinChainLMA::calcInvKinHelper(const Eigen::Isometry3d& pose,
 
   KDLToEigen(kdl_solution, solution);
 
+  // Reorder if needed
+  if (!sync_joint_map_.empty())
+    tesseract_common::reorder(solution, sync_joint_map_);
+
   IKSolutions solution_set;
 
-  if (tesseract_common::satisfiesPositionLimits(solution, kdl_data_.limits.joint_limits))
+  if (tesseract_common::satisfiesPositionLimits(solution, kdl_data_.data.limits.joint_limits))
     solution_set.push_back(solution);
 
   return solution_set;
@@ -123,13 +178,13 @@ bool KDLInvKinChainLMA::checkJoints(const Eigen::Ref<const Eigen::VectorXd>& vec
 
   for (int i = 0; i < vec.size(); ++i)
   {
-    if ((vec[i] < kdl_data_.limits.joint_limits(i, 0)) || (vec(i) > kdl_data_.limits.joint_limits(i, 1)))
+    if ((vec[i] < kdl_data_.data.limits.joint_limits(i, 0)) || (vec(i) > kdl_data_.data.limits.joint_limits(i, 1)))
     {
       CONSOLE_BRIDGE_logDebug("Joint %s is out-of-range (%g < %g < %g)",
-                              kdl_data_.joint_list[static_cast<size_t>(i)].c_str(),
-                              kdl_data_.limits.joint_limits(i, 0),
+                              kdl_data_.data.joint_names[static_cast<size_t>(i)].c_str(),
+                              kdl_data_.data.limits.joint_limits(i, 0),
                               vec(i),
-                              kdl_data_.limits.joint_limits(i, 1));
+                              kdl_data_.data.limits.joint_limits(i, 1));
       return false;
     }
   }
@@ -140,22 +195,22 @@ bool KDLInvKinChainLMA::checkJoints(const Eigen::Ref<const Eigen::VectorXd>& vec
 const std::vector<std::string>& KDLInvKinChainLMA::getJointNames() const
 {
   assert(checkInitialized());
-  return kdl_data_.joint_list;
+  return kdl_data_.data.joint_names;
 }
 
 const std::vector<std::string>& KDLInvKinChainLMA::getLinkNames() const
 {
   assert(checkInitialized());
-  return kdl_data_.link_list;
+  return kdl_data_.data.link_names;
 }
 
 const std::vector<std::string>& KDLInvKinChainLMA::getActiveLinkNames() const
 {
   assert(checkInitialized());
-  return kdl_data_.active_link_list;
+  return kdl_data_.data.active_link_names;
 }
 
-const tesseract_common::KinematicLimits& KDLInvKinChainLMA::getLimits() const { return kdl_data_.limits; }
+const tesseract_common::KinematicLimits& KDLInvKinChainLMA::getLimits() const { return kdl_data_.data.limits; }
 
 void KDLInvKinChainLMA::setLimits(tesseract_common::KinematicLimits limits)
 {
@@ -164,19 +219,19 @@ void KDLInvKinChainLMA::setLimits(tesseract_common::KinematicLimits limits)
       limits.acceleration_limits.size() != nj)
     throw std::runtime_error("Kinematics limits assigned are invalid!");
 
-  kdl_data_.limits = std::move(limits);
+  kdl_data_.data.limits = std::move(limits);
 }
 
 std::vector<Eigen::Index> KDLInvKinChainLMA::getRedundancyCapableJointIndices() const
 {
-  return kdl_data_.redundancy_indices;
+  return kdl_data_.data.redundancy_indices;
 }
 
 unsigned int KDLInvKinChainLMA::numJoints() const { return kdl_data_.robot_chain.getNrOfJoints(); }
 
-const std::string& KDLInvKinChainLMA::getBaseLinkName() const { return kdl_data_.base_name; }
+const std::string& KDLInvKinChainLMA::getBaseLinkName() const { return kdl_data_.data.base_link_name; }
 
-const std::string& KDLInvKinChainLMA::getTipLinkName() const { return kdl_data_.tip_name; }
+const std::string& KDLInvKinChainLMA::getTipLinkName() const { return kdl_data_.data.tip_link_name; }
 
 const std::string& KDLInvKinChainLMA::getName() const { return name_; }
 
@@ -212,6 +267,10 @@ bool KDLInvKinChainLMA::init(tesseract_scene_graph::SceneGraph::ConstPtr scene_g
     return false;
   }
 
+  // Store original sync data
+  orig_data_ = kdl_data_.data;
+
+  // Create KDL IK Solver
   ik_solver_ = std::make_unique<KDL::ChainIkSolverPos_LMA>(kdl_data_.robot_chain);
 
   initialized_ = true;
@@ -234,8 +293,11 @@ bool KDLInvKinChainLMA::init(const KDLInvKinChainLMA& kin)
   name_ = kin.name_;
   solver_name_ = kin.solver_name_;
   kdl_data_ = kin.kdl_data_;
+  orig_data_ = kin.orig_data_;
   ik_solver_ = std::make_unique<KDL::ChainIkSolverPos_LMA>(kdl_data_.robot_chain);
   scene_graph_ = kin.scene_graph_;
+  sync_fwd_kin_ = kin.sync_fwd_kin_;
+  sync_joint_map_ = kin.sync_joint_map_;
 
   return initialized_;
 }

@@ -832,6 +832,10 @@ ManipulatorManager::getInvKinematicFactory(const std::string& name) const
 
 bool ManipulatorManager::addInvKinematicSolver(const tesseract_kinematics::InverseKinematics::Ptr& solver)
 {
+  if (solver->isSynchronized())
+    throw std::runtime_error("ManipulatorManager does not accept inverse kinematics objects which have been "
+                             "synchronized!");
+
   auto it = inv_kin_manipulators_.find(std::make_pair(solver->getName(), solver->getSolverName()));
   if (it != inv_kin_manipulators_.end())
     return false;
