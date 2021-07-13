@@ -51,7 +51,8 @@ bool KDLInvKinChainLMA::update()
   if (!init(scene_graph_, orig_data_.base_link_name, orig_data_.tip_link_name, name_))
     return false;
 
-  synchronize(sync_fwd_kin_);
+  if (sync_fwd_kin_ != nullptr)
+    synchronize(sync_fwd_kin_);
 
   return true;
 }

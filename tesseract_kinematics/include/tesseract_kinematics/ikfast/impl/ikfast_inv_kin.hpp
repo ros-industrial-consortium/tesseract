@@ -62,7 +62,8 @@ bool IKFastInvKin::update()
             orig_data_.redundancy_indices))
     return false;
 
-  synchronize(sync_fwd_kin_);
+  if (sync_fwd_kin_ != nullptr)
+    synchronize(sync_fwd_kin_);
 
   return true;
 }

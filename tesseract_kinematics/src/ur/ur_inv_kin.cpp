@@ -237,7 +237,8 @@ bool URInvKin::update()
             orig_data_.limits))
     return false;
 
-  synchronize(sync_fwd_kin_);
+  if (sync_fwd_kin_ != nullptr)
+    synchronize(sync_fwd_kin_);
 
   return true;
 }

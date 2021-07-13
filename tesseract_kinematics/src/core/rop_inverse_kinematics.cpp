@@ -49,7 +49,8 @@ bool RobotOnPositionerInvKin::update()
   if (!init(scene_graph_, manip_inv_kin_, manip_reach_, positioner_fwd_kin_, positioner_sample_resolution_, name_))
     return false;
 
-  synchronize(sync_fwd_kin_);
+  if (sync_fwd_kin_ != nullptr)
+    synchronize(sync_fwd_kin_);
 
   return true;
 }
