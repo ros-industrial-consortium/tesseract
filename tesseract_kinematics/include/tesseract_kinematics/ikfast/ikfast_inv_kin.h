@@ -94,7 +94,8 @@ public:
   using Ptr = std::shared_ptr<IKFastInvKin>;
   using ConstPtr = std::shared_ptr<const IKFastInvKin>;
 
-  IKFastInvKin();
+  IKFastInvKin() = default;
+  ~IKFastInvKin() override = default;
   IKFastInvKin(const IKFastInvKin&) = delete;
   IKFastInvKin& operator=(const IKFastInvKin&) = delete;
   IKFastInvKin(IKFastInvKin&&) = delete;
@@ -118,7 +119,7 @@ public:
 
   const std::vector<std::string>& getJointNames() const override;
   const std::vector<std::string>& getLinkNames() const override;
-  const std::vector<std::string>& getActiveLinkNames() const;
+  const std::vector<std::string>& getActiveLinkNames() const override;
   const tesseract_common::KinematicLimits& getLimits() const override;
   void setLimits(tesseract_common::KinematicLimits limits) override;
   std::vector<Eigen::Index> getRedundancyCapableJointIndices() const override;
@@ -154,13 +155,13 @@ public:
   bool checkInitialized() const;
 
 protected:
-  bool initialized_ = false;                 /**< @brief Identifies if the object has been initialized */
-  ForwardKinematics::ConstPtr sync_fwd_kin_; /**< @brief Synchronized forward kinematics object */
-  std::vector<Eigen::Index> sync_joint_map_; /**< @brief Synchronized joint solution remapping */
-  SynchronizableData data_;                  /**< @brief The current data that may be synchronized */
-  SynchronizableData orig_data_;             /**< @brief The data prior to synchronization */
-  std::string name_;                         /**< @brief Name of the kinematic chain */
-  std::string solver_name_;                  /**< @brief Name of this solver */
+  bool initialized_ = false;                  /**< @brief Identifies if the object has been initialized */
+  ForwardKinematics::ConstPtr sync_fwd_kin_;  /**< @brief Synchronized forward kinematics object */
+  std::vector<Eigen::Index> sync_joint_map_;  /**< @brief Synchronized joint solution remapping */
+  SynchronizableData data_;                   /**< @brief The current data that may be synchronized */
+  SynchronizableData orig_data_;              /**< @brief The data prior to synchronization */
+  std::string name_;                          /**< @brief Name of the kinematic chain */
+  std::string solver_name_{ "IKFastInvKin" }; /**< @brief Name of this solver */
 
   /**
    * @brief This used by the clone method
@@ -170,5 +171,7 @@ protected:
 };
 
 }  // namespace tesseract_kinematics
+
+#include <tesseract_kinematics/ikfast/impl/ikfast_inv_kin.hpp>
 
 #endif  // TESSERACT_KINEMATICS_IKFAST_INV_KIN_H

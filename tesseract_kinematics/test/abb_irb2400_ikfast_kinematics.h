@@ -11,6 +11,7 @@ namespace tesseract_kinematics
 class AbbIRB2400Kinematics : public IKFastInvKin
 {
 public:
+  AbbIRB2400Kinematics() = default;
   AbbIRB2400Kinematics(const tesseract_kinematics::ForwardKinematics::ConstPtr& fwd_kin);
 };
 
