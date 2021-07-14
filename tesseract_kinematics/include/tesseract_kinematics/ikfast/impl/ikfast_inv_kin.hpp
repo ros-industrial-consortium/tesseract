@@ -47,7 +47,7 @@ InverseKinematics::Ptr IKFastInvKin::clone() const
 {
   auto cloned_invkin = std::make_shared<IKFastInvKin>();
   cloned_invkin->init(*this);
-  return std::move(cloned_invkin);
+  return cloned_invkin;
 }
 
 bool IKFastInvKin::update()
@@ -173,7 +173,7 @@ IKSolutions IKFastInvKin::calcInvKin(const Eigen::Isometry3d& pose,
                                      const Eigen::Ref<const Eigen::VectorXd>& seed,
                                      const std::string& link_name) const
 {
-  if (link_name == tip_link_name_)
+  if (link_name == data_.tip_link_name)
     return calcInvKin(pose, seed);
 
   throw std::runtime_error("IKFastInvKin::calcInvKin(Eigen::VectorXd&, const Eigen::Isometry3d&, const "
@@ -215,7 +215,7 @@ bool IKFastInvKin::init(std::string name,
   data_.active_link_names = std::move(active_link_names);
   data_.limits = limits;
   data_.redundancy_indices = redundancy_indices;
-  orig_data_ = data;
+  orig_data_ = data_;
   initialized_ = true;
 
   return initialized_;

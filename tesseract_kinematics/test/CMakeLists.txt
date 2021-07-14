@@ -1,6 +1,8 @@
 find_package(GTest REQUIRED)
 find_package(tesseract_support REQUIRED)
 find_package(tesseract_urdf REQUIRED)
+find_package(LAPACK REQUIRED) # Requried for ikfast
+
 if(NOT TARGET GTest::GTest)
   add_library(GTest::GTest INTERFACE IMPORTED)
   set_target_properties(GTest::GTest PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${GTEST_INCLUDE_DIRS}")
@@ -30,6 +32,23 @@ if(NOT TARGET GTest::Main)
 endif()
 
 include(GoogleTest)
+
+add_library(abb_irb2400_ikfast_kinematics abb_irb2400_ikfast_kinematics.cpp abb_irb2400_ikfast_solver.cpp)
+target_link_libraries(abb_irb2400_ikfast_kinematics PUBLIC ${PROJECT_NAME}_ikfast ${LAPACK_LIBRARIES})
+target_compile_definitions(
+  abb_irb2400_ikfast_kinematics
+  PUBLIC -DIKFAST_NO_MAIN
+         -DIKFAST_CLIBRARY
+         -DIKFAST_HAS_LIBRARY
+         ${TESSERACT_COMPILE_DEFINITIONS})
+target_compile_options(abb_irb2400_ikfast_kinematics PUBLIC ${TESSERACT_COMPILE_OPTIONS_PUBLIC})
+target_compile_options(abb_irb2400_ikfast_kinematics PRIVATE ${TESSERACT_COMPILE_OPTIONS_PRIVATE})
+target_clang_tidy(abb_irb2400_ikfast_kinematics ARGUMENTS ${TESSERACT_CLANG_TIDY_ARGS}
+                  ENABLE ${TESSERACT_ENABLE_CLANG_TIDY})
+target_include_directories(abb_irb2400_ikfast_kinematics PUBLIC "$<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>"
+                                                                "$<INSTALL_INTERFACE:include>")
+target_include_directories(abb_irb2400_ikfast_kinematics SYSTEM PUBLIC ${LAPACK_INCLUDE_DIRS} ${EIGEN3_INCLUDE_DIRS})
+add_dependencies(abb_irb2400_ikfast_kinematics ${PROJECT_NAME}_ikfast)
 
 add_executable(${PROJECT_NAME}_core_unit kinematics_core_unit.cpp)
 target_link_libraries(
