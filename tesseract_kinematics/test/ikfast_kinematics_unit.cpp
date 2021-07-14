@@ -32,7 +32,6 @@ TESSERACT_COMMON_IGNORE_WARNINGS_POP
 #include "kinematics_test_utils.h"
 #include "abb_irb2400_ikfast_kinematics.h"
 #include <tesseract_kinematics/kdl/kdl_fwd_kin_chain.h>
-#include <opw_kinematics/opw_parameters.h>
 
 using namespace tesseract_kinematics::test_suite;
 
