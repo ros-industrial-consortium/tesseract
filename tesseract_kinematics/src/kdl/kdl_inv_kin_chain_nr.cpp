@@ -62,13 +62,13 @@ void KDLInvKinChainNR::synchronize(ForwardKinematics::ConstPtr fwd_kin)
   if (numJoints() != fwd_kin->numJoints())
     throw std::runtime_error("Tried to synchronize kinematics objects with different number of joints!");
 
-  if (tesseract_common::isIdentical(orig_data_.joint_names, fwd_kin->getJointNames(), false))
+  if (!tesseract_common::isIdentical(orig_data_.joint_names, fwd_kin->getJointNames(), false))
     throw std::runtime_error("Tried to synchronize kinematics objects with different joint names!");
 
-  if (tesseract_common::isIdentical(orig_data_.link_names, fwd_kin->getLinkNames(), false))
+  if (!tesseract_common::isIdentical(orig_data_.link_names, fwd_kin->getLinkNames(), false))
     throw std::runtime_error("Tried to synchronize kinematics objects with different active link names!");
 
-  if (tesseract_common::isIdentical(orig_data_.active_link_names, fwd_kin->getActiveLinkNames(), false))
+  if (!tesseract_common::isIdentical(orig_data_.active_link_names, fwd_kin->getActiveLinkNames(), false))
     throw std::runtime_error("Tried to synchronize kinematics objects with different active link names!");
 
   SynchronizableData local_data;
