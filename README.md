@@ -166,13 +166,8 @@ Tesseract currently leverages Compiler Warnigs, Clang Tidy and Code Coverage. Al
   - readability-uniqueptr-delete-release
   - readability-rary-objects
 
-## Build Branch Sphinx Documentation
-
-```
-cd gh_pages
-sphinx-build . output
-```
-Now open gh_pages/output/index.rst and remove *output* directory before commiting changes.
+## Documentation and Tutorials
+Documentation and tutorials for Tesseract are located at https://github.com/ros-industrial-consortium/tesseract_docs.git
 
 ## Debugging Windows Build
 

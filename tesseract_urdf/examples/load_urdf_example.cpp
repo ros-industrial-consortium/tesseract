@@ -20,7 +20,7 @@ std::string toString(const SceneGraph::Path& path)
 
 std::string toString(bool b) { return b ? "true" : "false"; }
 
-// Define a resource locator function
+// documentation:start:1: Define a resource locator function
 std::string locateResource(const std::string& url)
 {
   std::string mod_url = url;
@@ -47,23 +47,28 @@ std::string locateResource(const std::string& url)
 
   return mod_url;
 }
+// documentation:end:1: Define a resource locator function
 
 int main(int /*argc*/, char** /*argv*/)
 {
-  // Get the urdf file path
+  // documentation:start:2: Get the urdf file path
   std::string urdf_file = std::string(TESSERACT_SUPPORT_DIR) + "/urdf/lbr_iiwa_14_r820.urdf";
+  // documentation:end:2: Get the urdf file path
 
-  // Create scene graph
+  // documentation:start:3: Create scene graph
   tesseract_scene_graph::ResourceLocator::Ptr locator =
       std::make_shared<tesseract_scene_graph::SimpleResourceLocator>(locateResource);
   SceneGraph::Ptr g = parseURDFFile(urdf_file, locator);
+  // documentation:end:3: Create scene graph
 
-  // Print information
+  // documentation:start:4: Print information
   CONSOLE_BRIDGE_logInform(std::to_string(g->getJoints().size()).c_str());
   CONSOLE_BRIDGE_logInform(std::to_string(g->getLinks().size()).c_str());
   CONSOLE_BRIDGE_logInform(toString(g->isTree()).c_str());
   CONSOLE_BRIDGE_logInform(toString(g->isAcyclic()).c_str());
+  // documentation:end:4: Print information
 
-  // Save graph
+  // documentation:start:5: Save graph
   g->saveDOT(tesseract_common::getTempPath() + "tesseract_urdf_import.dot");
+  // documentation:end:5: Save graph
 }

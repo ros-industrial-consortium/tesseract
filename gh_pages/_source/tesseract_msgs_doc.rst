@@ -1,2 +1,0 @@
-Tesseract Msgs Package
-======================
