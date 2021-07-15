@@ -190,7 +190,9 @@ inline bool parseSceneGraph(KDLChainData& results,
   results.segment_index[results.data.base_link_name] = 0;
   results.data.link_names.push_back(results.data.base_link_name);
   results.data.active_link_names.clear();
-  bool found = false;
+
+  std::vector<std::string> full_active_link_names;
+  bool found{ false };
   for (unsigned i = 0, j = 0; i < results.robot_chain.getNrOfSegments(); ++i)
   {
     const KDL::Segment& seg = results.robot_chain.getSegment(i);
@@ -214,6 +216,9 @@ inline bool parseSceneGraph(KDLChainData& results,
       results.data.active_link_names.push_back(seg.getName());
     }
 
+    std::vector<std::string> children = scene_graph.getJointChildrenNames(jnt.getName());
+    full_active_link_names.insert(full_active_link_names.end(), children.begin(), children.end());
+
     results.data.joint_names[j] = jnt.getName();
     const tesseract_scene_graph::Joint::ConstPtr& joint = scene_graph.getJoint(jnt.getName());
     results.data.limits.joint_limits(j, 0) = joint->limits->lower;
@@ -233,6 +238,19 @@ inline bool parseSceneGraph(KDLChainData& results,
     ++j;
   }
 
+  // Clean up link names which are fixed to world
+  results.data.active_link_names.erase(std::remove_if(results.data.active_link_names.begin(),
+                                                      results.data.active_link_names.end(),
+                                                      [&full_active_link_names](const std::string& ln) {
+                                                        return (std::find(full_active_link_names.begin(),
+                                                                          full_active_link_names.end(),
+                                                                          ln) == full_active_link_names.end());
+                                                      }),
+                                       results.data.active_link_names.end());
+
+  std::cout << "active_link_names (after)" << std::endl;
+  for (const auto& ln : results.data.active_link_names)
+    std::cout << ln << std::endl;
   results.data.redundancy_indices.clear();
   for (std::size_t i = 0; i < results.data.joint_names.size(); ++i)
   {

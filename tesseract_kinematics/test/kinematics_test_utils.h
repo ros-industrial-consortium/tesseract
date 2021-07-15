@@ -401,12 +401,10 @@ inline void runKinSetJointLimitsTest(tesseract_kinematics::InverseKinematics& ki
  */
 inline void runStringVectorEqualTest(std::vector<std::string> names, std::vector<std::string> target_names)
 {
-  std::sort(names.begin(), names.end());
-  std::sort(target_names.begin(), target_names.end());
   EXPECT_EQ(names.size(), target_names.size());
   EXPECT_FALSE(names.empty());
   EXPECT_FALSE(target_names.empty());
-  EXPECT_TRUE(std::equal(names.begin(), names.end(), target_names.begin()));
+  EXPECT_TRUE(tesseract_common::isIdentical(names, target_names, false));
 }
 
 /**
