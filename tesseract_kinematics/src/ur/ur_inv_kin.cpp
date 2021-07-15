@@ -252,7 +252,7 @@ void URInvKin::synchronize(ForwardKinematics::ConstPtr fwd_kin)
     throw std::runtime_error("Tried to synchronize kinematics objects with different joint names!");
 
   if (!tesseract_common::isIdentical(orig_data_.link_names, fwd_kin->getLinkNames(), false))
-    throw std::runtime_error("Tried to synchronize kinematics objects with different active link names!");
+    throw std::runtime_error("Tried to synchronize kinematics objects with different link names!");
 
   if (!tesseract_common::isIdentical(orig_data_.active_link_names, fwd_kin->getActiveLinkNames(), false))
     throw std::runtime_error("Tried to synchronize kinematics objects with different active link names!");
