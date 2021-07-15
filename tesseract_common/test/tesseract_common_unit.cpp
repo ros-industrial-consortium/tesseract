@@ -831,6 +831,26 @@ TEST(TesseractCommonUnit, getTimestampStringUnit)
   EXPECT_FALSE(s1.empty());
 }
 
+TEST(TesseractCommonUnit, reorder)
+{
+  std::vector<std::vector<Eigen::Index>> checks;
+  checks.push_back({ 5, 4, 3, 2, 1, 0 });
+  checks.push_back({ 0, 1, 2, 3, 4, 5 });
+  checks.push_back({ 3, 2, 4, 1, 5, 0 });
+  Eigen::VectorXd v = Eigen::VectorXd::Random(6);
+
+  for (const auto& check : checks)
+  {
+    Eigen::VectorXd v_copy = v;
+    tesseract_common::reorder(v_copy, check);
+
+    for (std::size_t i = 0; i < check.size(); ++i)
+    {
+      EXPECT_NEAR(v_copy(static_cast<Eigen::Index>(i)), v(check[i]), 1e-8);
+    }
+  }
+}
+
 TEST(TesseractCommonUnit, getTempPathUnit)
 {
   std::string s1 = tesseract_common::getTempPath();

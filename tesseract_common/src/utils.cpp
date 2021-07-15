@@ -40,6 +40,8 @@ template bool toNumeric<double>(const std::string&, double&);
 template bool toNumeric<float>(const std::string&, float&);
 template bool toNumeric<int>(const std::string&, int&);
 template bool toNumeric<long>(const std::string&, long&);
+template bool isIdentical<std::string>(const std::vector<std::string>&, const std::vector<std::string>&, bool);
+template bool isIdentical<Eigen::Index>(const std::vector<Eigen::Index>&, const std::vector<Eigen::Index>&, bool);
 
 // Similar to rethrow_if_nested
 // but does nothing instead of calling std::terminate
@@ -139,18 +141,6 @@ void trim(std::string& s)
   rtrim(s);
 }
 
-bool isIdentical(const std::vector<std::string>& vec1, const std::vector<std::string>& vec2, bool ordered)
-{
-  if (ordered)
-    return std::equal(vec1.begin(), vec1.end(), vec2.begin());
-
-  std::vector<std::string> v1 = vec1;
-  std::vector<std::string> v2 = vec2;
-  std::sort(v1.begin(), v1.end());
-  std::sort(v2.begin(), v2.end());
-  return std::equal(v1.begin(), v1.end(), v2.begin());
-}
-
 std::string getTimestampString()
 {
   std::ostringstream oss;
@@ -158,6 +148,26 @@ std::string getTimestampString()
   auto tm = *std::localtime(&t);
   oss << std::put_time(&tm, "%d-%m-%Y-%H-%M-%S");
   return oss.str();
+}
+
+void reorder(Eigen::Ref<Eigen::VectorXd> v, std::vector<Eigen::Index> order)
+{
+  assert(v.rows() == static_cast<Eigen::Index>(order.size()));
+  // for all elements to put in place
+  for (std::size_t i = 0; i < order.size() - 1; ++i)
+  {
+    if (order[i] == static_cast<Eigen::Index>(i))
+      continue;
+
+    size_t j;
+    for (j = i + 1; j < order.size(); ++j)
+    {
+      if (order[j] == static_cast<Eigen::Index>(i))
+        break;
+    }
+    std::swap(v[static_cast<Eigen::Index>(i)], v[order[i]]);
+    std::swap(order[i], order[j]);
+  }
 }
 
 tinyxml2::XMLError QueryStringValue(const tinyxml2::XMLElement* xml_element, std::string& value)

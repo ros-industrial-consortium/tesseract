@@ -46,8 +46,57 @@ bool RobotOnPositionerInvKin::update()
 {
   manip_inv_kin_->update();
   positioner_fwd_kin_->update();
-  return init(scene_graph_, manip_inv_kin_, manip_reach_, positioner_fwd_kin_, positioner_sample_resolution_, name_);
+  if (!init(scene_graph_, manip_inv_kin_, manip_reach_, positioner_fwd_kin_, positioner_sample_resolution_, name_))
+    return false;
+
+  if (sync_fwd_kin_ != nullptr)
+    synchronize(sync_fwd_kin_);
+
+  return true;
 }
+
+void RobotOnPositionerInvKin::synchronize(ForwardKinematics::ConstPtr fwd_kin)
+{
+  if (numJoints() != fwd_kin->numJoints())
+    throw std::runtime_error("Tried to synchronize kinematics objects with different number of joints!");
+
+  if (!tesseract_common::isIdentical(orig_data_.joint_names, fwd_kin->getJointNames(), false))
+    throw std::runtime_error("Tried to synchronize kinematics objects with different joint names!");
+
+  if (!tesseract_common::isIdentical(orig_data_.link_names, fwd_kin->getLinkNames(), false))
+    throw std::runtime_error("Tried to synchronize kinematics objects with different link names!");
+
+  if (!tesseract_common::isIdentical(orig_data_.active_link_names, fwd_kin->getActiveLinkNames(), false))
+    throw std::runtime_error("Tried to synchronize kinematics objects with different active link names!");
+
+  SynchronizableData local_data;
+  local_data.base_link_name = fwd_kin->getBaseLinkName();
+  local_data.tip_link_name = fwd_kin->getTipLinkName();
+  local_data.joint_names = fwd_kin->getJointNames();
+  local_data.link_names = fwd_kin->getLinkNames();
+  local_data.active_link_names = fwd_kin->getActiveLinkNames();
+  local_data.redundancy_indices = fwd_kin->getRedundancyCapableJointIndices();
+  local_data.limits = fwd_kin->getLimits();
+  if (data_ == local_data)
+    return;
+
+  sync_joint_map_.clear();
+  const std::vector<std::string>& joint_names = fwd_kin->getJointNames();
+  if (orig_data_.joint_names != joint_names)
+  {
+    for (std::size_t i = 0; i < joint_names.size(); ++i)
+    {
+      auto it = std::find(orig_data_.joint_names.begin(), orig_data_.joint_names.end(), joint_names[i]);
+      Eigen::Index idx = std::distance(orig_data_.joint_names.begin(), it);
+      sync_joint_map_.push_back(idx);
+    }
+  }
+
+  sync_fwd_kin_ = std::move(fwd_kin);
+  data_ = local_data;
+}
+
+bool RobotOnPositionerInvKin::isSynchronized() const { return (sync_fwd_kin_ != nullptr); }
 
 IKSolutions RobotOnPositionerInvKin::calcInvKinHelper(const Eigen::Isometry3d& pose,
                                                       const Eigen::Ref<const Eigen::VectorXd>& seed) const
@@ -101,6 +150,11 @@ void RobotOnPositionerInvKin::ikAt(IKSolutions& solutions,
     full_sol.resize(positioner_dof + robot_dof);
     full_sol.head(positioner_dof) = positioner_pose;
     full_sol.tail(robot_dof) = robot_solution;
+
+    // Reorder if needed
+    if (!sync_joint_map_.empty())
+      tesseract_common::reorder(full_sol, sync_joint_map_);
+
     solutions.push_back(full_sol);
   }
 }
@@ -131,13 +185,13 @@ bool RobotOnPositionerInvKin::checkJoints(const Eigen::Ref<const Eigen::VectorXd
 
   for (int i = 0; i < vec.size(); ++i)
   {
-    if ((vec[i] < limits_.joint_limits(i, 0)) || (vec(i) > limits_.joint_limits(i, 1)))
+    if ((vec[i] < data_.limits.joint_limits(i, 0)) || (vec(i) > data_.limits.joint_limits(i, 1)))
     {
       CONSOLE_BRIDGE_logDebug("Joint %s is out-of-range (%g < %g < %g)",
-                              joint_names_[static_cast<size_t>(i)].c_str(),
-                              limits_.joint_limits(i, 0),
+                              data_.joint_names[static_cast<size_t>(i)].c_str(),
+                              data_.limits.joint_limits(i, 0),
                               vec(i),
-                              limits_.joint_limits(i, 1));
+                              data_.limits.joint_limits(i, 1));
       return false;
     }
   }
@@ -148,22 +202,22 @@ bool RobotOnPositionerInvKin::checkJoints(const Eigen::Ref<const Eigen::VectorXd
 const std::vector<std::string>& RobotOnPositionerInvKin::getJointNames() const
 {
   assert(checkInitialized());
-  return joint_names_;
+  return data_.joint_names;
 }
 
 const std::vector<std::string>& RobotOnPositionerInvKin::getLinkNames() const
 {
   assert(checkInitialized());
-  return link_names_;
+  return data_.link_names;
 }
 
 const std::vector<std::string>& RobotOnPositionerInvKin::getActiveLinkNames() const
 {
   assert(checkInitialized());
-  return active_link_names_;
+  return data_.active_link_names;
 }
 
-const tesseract_common::KinematicLimits& RobotOnPositionerInvKin::getLimits() const { return limits_; }
+const tesseract_common::KinematicLimits& RobotOnPositionerInvKin::getLimits() const { return data_.limits; }
 
 void RobotOnPositionerInvKin::setLimits(tesseract_common::KinematicLimits limits)
 {
@@ -186,12 +240,12 @@ void RobotOnPositionerInvKin::setLimits(tesseract_common::KinematicLimits limits
   manipulator_limits.acceleration_limits = limits.acceleration_limits.tail(mj);
   manip_inv_kin_->setLimits(manipulator_limits);
 
-  limits_ = std::move(limits);
+  data_.limits = std::move(limits);
 }
 
 std::vector<Eigen::Index> RobotOnPositionerInvKin::getRedundancyCapableJointIndices() const
 {
-  return redundancy_indices_;
+  return data_.redundancy_indices;
 }
 
 unsigned int RobotOnPositionerInvKin::numJoints() const { return dof_; }
@@ -292,46 +346,47 @@ bool RobotOnPositionerInvKin::init(tesseract_scene_graph::SceneGraph::ConstPtr s
   positioner_sample_resolution_ = positioner_sample_resolution;
   dof_ = positioner_fwd_kin_->numJoints() + manip_inv_kin_->numJoints();
 
-  limits_.joint_limits = Eigen::MatrixX2d(dof_, 2);
-  limits_.joint_limits << positioner_fwd_kin_->getLimits().joint_limits, manip_inv_kin_->getLimits().joint_limits;
+  data_.clear();
+  data_.limits.joint_limits = Eigen::MatrixX2d(dof_, 2);
+  data_.limits.joint_limits << positioner_fwd_kin_->getLimits().joint_limits, manip_inv_kin_->getLimits().joint_limits;
 
-  limits_.velocity_limits = Eigen::VectorXd(dof_);
-  limits_.velocity_limits << positioner_fwd_kin_->getLimits().velocity_limits,
+  data_.limits.velocity_limits = Eigen::VectorXd(dof_);
+  data_.limits.velocity_limits << positioner_fwd_kin_->getLimits().velocity_limits,
       manip_inv_kin_->getLimits().velocity_limits;
 
-  limits_.acceleration_limits = Eigen::VectorXd(dof_);
-  limits_.acceleration_limits << positioner_fwd_kin_->getLimits().acceleration_limits,
+  data_.limits.acceleration_limits = Eigen::VectorXd(dof_);
+  data_.limits.acceleration_limits << positioner_fwd_kin_->getLimits().acceleration_limits,
       manip_inv_kin_->getLimits().acceleration_limits;
 
-  joint_names_ = positioner_fwd_kin_->getJointNames();
+  data_.joint_names = positioner_fwd_kin_->getJointNames();
   const auto& manip_joints = manip_inv_kin_->getJointNames();
-  joint_names_.insert(joint_names_.end(), manip_joints.begin(), manip_joints.end());
+  data_.joint_names.insert(data_.joint_names.end(), manip_joints.begin(), manip_joints.end());
 
-  link_names_ = positioner_fwd_kin_->getLinkNames();
+  data_.link_names = positioner_fwd_kin_->getLinkNames();
   const auto& manip_links = manip_inv_kin_->getLinkNames();
-  link_names_.insert(link_names_.end(), manip_links.begin(), manip_links.end());
+  data_.link_names.insert(data_.link_names.end(), manip_links.begin(), manip_links.end());
 
   // Remove duplicates
-  std::sort(link_names_.begin(), link_names_.end());
-  link_names_.erase(std::unique(link_names_.begin(), link_names_.end()), link_names_.end());
+  std::sort(data_.link_names.begin(), data_.link_names.end());
+  data_.link_names.erase(std::unique(data_.link_names.begin(), data_.link_names.end()), data_.link_names.end());
 
-  active_link_names_ = positioner_fwd_kin_->getActiveLinkNames();
-  active_link_names_.insert(active_link_names_.end(), manip_links.begin(), manip_links.end());
+  data_.active_link_names = positioner_fwd_kin_->getActiveLinkNames();
+  data_.active_link_names.insert(data_.active_link_names.end(), manip_links.begin(), manip_links.end());
 
   // Remove duplicates
-  std::sort(active_link_names_.begin(), active_link_names_.end());
-  active_link_names_.erase(std::unique(active_link_names_.begin(), active_link_names_.end()), active_link_names_.end());
+  std::sort(data_.active_link_names.begin(), data_.active_link_names.end());
+  data_.active_link_names.erase(std::unique(data_.active_link_names.begin(), data_.active_link_names.end()),
+                                data_.active_link_names.end());
 
   // Get redundancy indices
-  redundancy_indices_.clear();
-  for (std::size_t i = 0; i < joint_names_.size(); ++i)
+  for (std::size_t i = 0; i < data_.joint_names.size(); ++i)
   {
-    const auto& joint = scene_graph_->getJoint(joint_names_[i]);
+    const auto& joint = scene_graph_->getJoint(data_.joint_names[i]);
     switch (joint->type)
     {
       case tesseract_scene_graph::JointType::REVOLUTE:
       case tesseract_scene_graph::JointType::CONTINUOUS:
-        redundancy_indices_.push_back(static_cast<Eigen::Index>(i));
+        data_.redundancy_indices.push_back(static_cast<Eigen::Index>(i));
         break;
       default:
         break;
@@ -354,6 +409,8 @@ bool RobotOnPositionerInvKin::init(tesseract_scene_graph::SceneGraph::ConstPtr s
     dof_range_.push_back(Eigen::VectorXd::LinSpaced(cnt, positioner_limits(d, 0), positioner_limits(d, 1)));
   }
 
+  orig_data_ = data_;
+
   initialized_ = true;
   return initialized_;
 }
@@ -362,17 +419,16 @@ bool RobotOnPositionerInvKin::init(const RobotOnPositionerInvKin& kin)
 {
   initialized_ = kin.initialized_;
   scene_graph_ = kin.scene_graph_;
+  sync_fwd_kin_ = kin.sync_fwd_kin_;
+  sync_joint_map_ = kin.sync_joint_map_;
   name_ = kin.name_;
   manip_inv_kin_ = kin.manip_inv_kin_->clone();
   manip_reach_ = kin.manip_reach_;
   positioner_fwd_kin_ = kin.positioner_fwd_kin_->clone();
   positioner_sample_resolution_ = kin.positioner_sample_resolution_;
   dof_ = kin.dof_;
-  limits_ = kin.limits_;
-  joint_names_ = kin.joint_names_;
-  link_names_ = kin.link_names_;
-  active_link_names_ = kin.active_link_names_;
-  redundancy_indices_ = kin.redundancy_indices_;
+  data_ = kin.data_;
+  orig_data_ = kin.orig_data_;
   dof_range_ = kin.dof_range_;
 
   return initialized_;

@@ -49,15 +49,14 @@ template <typename T>
 class IkSingleDOFSolutionBase
 {
 public:
-  IkSingleDOFSolutionBase() : fmul(0), foffset(0), freeind(-1), maxsolutions(1)
-  {
-    indices[0] = indices[1] = indices[2] = indices[3] = indices[4] = -1;
-  }
-  T fmul, foffset;             ///< joint value is fmul*sol[freeind]+foffset
-  signed char freeind;         ///< if >= 0, mimics another joint
-  unsigned char jointtype;     ///< joint type, 0x01 is revolute, 0x11 is slider
-  unsigned char maxsolutions;  ///< max possible indices, 0 if controlled by free index or a free joint itself
-  unsigned char indices[5];  ///< unique index of the solution used to keep track on what part it came from. sometimes a
+  IkSingleDOFSolutionBase() { indices[0] = indices[1] = indices[2] = indices[3] = indices[4] = -1; }
+  T fmul{ 0 };                      ///< joint value is fmul*sol[freeind]+foffset
+  T foffset{ 0 };                   ///< joint value is fmul*sol[freeind]+foffset
+  signed char freeind{ -1 };        ///< if >= 0, mimics another joint
+  unsigned char jointtype;          ///< joint type, 0x01 is revolute, 0x11 is slider
+  unsigned char maxsolutions{ 1 };  ///< max possible indices, 0 if controlled by free index or a free joint itself
+  unsigned char indices[5];  // NOLINT  ///< unique index of the solution used to keep track on what part it came from.
+                             // sometimes a
   /// solution can be repeated for different indices. store at least another repeated root
 };
 
@@ -67,10 +66,10 @@ public:
 /// Stores all these solutions in the form of free variables that the user has to set when querying the solution. Its
 /// prototype is:
 template <typename T>
-class IkSolutionBase
+class IkSolutionBase  // NOLINT
 {
 public:
-  virtual ~IkSolutionBase() {}
+  virtual ~IkSolutionBase() = default;
   /// \brief gets a concrete solution
   ///
   /// \param[out] solution the result
@@ -81,7 +80,10 @@ public:
   virtual void GetSolution(std::vector<T>& solution, const std::vector<T>& freevalues) const
   {
     solution.resize(GetDOF());
-    GetSolution(&solution.at(0), freevalues.size() > 0 ? &freevalues.at(0) : NULL);
+    if (freevalues.empty())
+      GetSolution(&solution.at(0), nullptr);
+    else
+      GetSolution(&solution.at(0), &freevalues.at(0));
   }
 
   /// \brief Gets the indices of the configuration space that have to be preset before a full solution can be returned
@@ -95,10 +97,10 @@ public:
 
 /// \brief manages all the solutions
 template <typename T>
-class IkSolutionListBase
+class IkSolutionListBase  // NOLINT
 {
 public:
-  virtual ~IkSolutionListBase() {}
+  virtual ~IkSolutionListBase() = default;
 
   /// \brief add one solution and return its index for later retrieval
   ///
@@ -120,40 +122,29 @@ public:
 
 /// \brief holds function pointers for all the exported functions of ikfast
 template <typename T>
-class IkFastFunctions
+class IkFastFunctions  // NOLINT
 {
 public:
-  IkFastFunctions()
-    : _ComputeIk(NULL)
-    , _ComputeFk(NULL)
-    , _GetNumFreeParameters(NULL)
-    , _GetFreeParameters(NULL)
-    , _GetNumJoints(NULL)
-    , _GetIkRealSize(NULL)
-    , _GetIkFastVersion(NULL)
-    , _GetIkType(NULL)
-    , _GetKinematicsHash(NULL)
-  {
-  }
-  virtual ~IkFastFunctions() {}
-  typedef bool (*ComputeIkFn)(const T*, const T*, const T*, IkSolutionListBase<T>&);
-  ComputeIkFn _ComputeIk;
-  typedef void (*ComputeFkFn)(const T*, T*, T*);
-  ComputeFkFn _ComputeFk;
-  typedef int (*GetNumFreeParametersFn)();
-  GetNumFreeParametersFn _GetNumFreeParameters;
-  typedef int* (*GetFreeParametersFn)();
-  GetFreeParametersFn _GetFreeParameters;
-  typedef int (*GetNumJointsFn)();
-  GetNumJointsFn _GetNumJoints;
-  typedef int (*GetIkRealSizeFn)();
-  GetIkRealSizeFn _GetIkRealSize;
-  typedef const char* (*GetIkFastVersionFn)();
-  GetIkFastVersionFn _GetIkFastVersion;
-  typedef int (*GetIkTypeFn)();
-  GetIkTypeFn _GetIkType;
-  typedef const char* (*GetKinematicsHashFn)();
-  GetKinematicsHashFn _GetKinematicsHash;
+  IkFastFunctions() = default;
+  virtual ~IkFastFunctions() = default;
+  using ComputeIkFn = bool (*)(const T*, const T*, const T*, IkSolutionListBase<T>&);
+  ComputeIkFn _ComputeIk{ nullptr };
+  using ComputeFkFn = void (*)(const T*, T*, T*);
+  ComputeFkFn _ComputeFk{ nullptr };
+  using GetNumFreeParametersFn = int (*)();
+  GetNumFreeParametersFn _GetNumFreeParameters{ nullptr };
+  using GetFreeParametersFn = int* (*)();
+  GetFreeParametersFn _GetFreeParameters{ nullptr };
+  using GetNumJointsFn = int (*)();
+  GetNumJointsFn _GetNumJoints{ nullptr };
+  using GetIkRealSizeFn = int (*)();
+  GetIkRealSizeFn _GetIkRealSize{ nullptr };
+  using GetIkFastVersionFn = const char* (*)();
+  GetIkFastVersionFn _GetIkFastVersion{ nullptr };
+  using GetIkTypeFn = int (*)();
+  GetIkTypeFn _GetIkType{ nullptr };
+  using GetKinematicsHashFn = const char* (*)();
+  GetKinematicsHashFn _GetKinematicsHash{ nullptr };
 };
 
 // Implementations of the abstract classes, user doesn't need to use them
@@ -169,7 +160,7 @@ public:
     _vfree = vfree;
   }
 
-  virtual void GetSolution(T* solution, const T* freevalues) const
+  void GetSolution(T* solution, const T* freevalues) const override
   {
     for (std::size_t i = 0; i < _vbasesol.size(); ++i)
     {
@@ -177,7 +168,8 @@ public:
         solution[i] = _vbasesol[i].foffset;
       else
       {
-        solution[i] = freevalues[_vbasesol[i].freeind] * _vbasesol[i].fmul + _vbasesol[i].foffset;
+        assert(freevalues != nullptr);
+        solution[i] = freevalues[_vbasesol[i].freeind] * _vbasesol[i].fmul + _vbasesol[i].foffset;  // NOLINT
         if (solution[i] > T(3.14159265358979))
         {
           solution[i] -= T(6.28318530717959);
@@ -190,14 +182,17 @@ public:
     }
   }
 
-  virtual void GetSolution(std::vector<T>& solution, const std::vector<T>& freevalues) const
+  void GetSolution(std::vector<T>& solution, const std::vector<T>& freevalues) const override
   {
     solution.resize(GetDOF());
-    GetSolution(&solution.at(0), freevalues.size() > 0 ? &freevalues.at(0) : NULL);
+    if (freevalues.empty())
+      GetSolution(&solution.at(0), nullptr);
+    else
+      GetSolution(&solution.at(0), &freevalues.at(0));
   }
 
-  virtual const std::vector<int>& GetFree() const { return _vfree; }
-  virtual int GetDOF() const { return static_cast<int>(_vbasesol.size()); }
+  const std::vector<int>& GetFree() const override { return _vfree; }
+  int GetDOF() const override { return static_cast<int>(_vbasesol.size()); }
 
   virtual void Validate() const
   {
@@ -229,7 +224,7 @@ public:
     {
       if (_vbasesol[i].maxsolutions != (unsigned char)-1 && _vbasesol[i].maxsolutions > 1)
       {
-        for (size_t j = 0; j < v.size(); ++j)
+        for (size_t j = 0; j < v.size(); ++j)  // NOLINT
         {
           v[j] *= _vbasesol[i].maxsolutions;
         }
@@ -261,27 +256,27 @@ template <typename T>
 class IkSolutionList : public IkSolutionListBase<T>
 {
 public:
-  virtual size_t AddSolution(const std::vector<IkSingleDOFSolutionBase<T> >& vinfos, const std::vector<int>& vfree)
+  size_t AddSolution(const std::vector<IkSingleDOFSolutionBase<T> >& vinfos, const std::vector<int>& vfree) override
   {
     size_t index = _listsolutions.size();
     _listsolutions.push_back(IkSolution<T>(vinfos, vfree));
     return index;
   }
 
-  virtual const IkSolutionBase<T>& GetSolution(size_t index) const
+  const IkSolutionBase<T>& GetSolution(size_t index) const override
   {
     if (index >= _listsolutions.size())
     {
       throw std::runtime_error("GetSolution index is invalid");
     }
-    typename std::list<IkSolution<T> >::const_iterator it = _listsolutions.begin();
+    auto it = _listsolutions.begin();
     std::advance(it, index);
     return *it;
   }
 
-  virtual size_t GetNumSolutions() const { return _listsolutions.size(); }
+  size_t GetNumSolutions() const override { return _listsolutions.size(); }
 
-  virtual void Clear() { _listsolutions.clear(); }
+  void Clear() override { _listsolutions.clear(); }
 
 protected:
   std::list<IkSolution<T> > _listsolutions;
@@ -312,7 +307,7 @@ namespace IKFAST_NAMESPACE
 #ifdef IKFAST_REAL
 typedef IKFAST_REAL IkReal;
 #else
-typedef double IkReal;
+using IkReal = double;
 #endif
 
 /** \brief Computes all IK solutions given a end effector coordinates and the free joints.

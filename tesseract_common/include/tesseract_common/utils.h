@@ -115,13 +115,31 @@ void trim(std::string& s);
  * @param vec2 Vector strings
  * @param ordered If true order is relavent, othwise if false order is not relavent
  */
-bool isIdentical(const std::vector<std::string>& vec1, const std::vector<std::string>& vec2, bool ordered = true);
+template <typename T>
+bool isIdentical(const std::vector<T>& vec1, const std::vector<T>& vec2, bool ordered = true)
+{
+  if (ordered)
+    return std::equal(vec1.begin(), vec1.end(), vec2.begin());
+
+  std::vector<T> v1 = vec1;
+  std::vector<T> v2 = vec2;
+  std::sort(v1.begin(), v1.end());
+  std::sort(v2.begin(), v2.end());
+  return std::equal(v1.begin(), v1.end(), v2.begin());
+}
 
 /**
  * @brief Get Timestamp string
  * @return Timestamp string
  */
 std::string getTimestampString();
+
+/**
+ * @brief Reorder Eigen::VectorXd implace given index list
+ * @param v The vector to reorder
+ * @param order A vector of index which define the new order
+ */
+void reorder(Eigen::Ref<Eigen::VectorXd> v, std::vector<Eigen::Index> order);
 
 /**
  * @brief Query a string value from xml element

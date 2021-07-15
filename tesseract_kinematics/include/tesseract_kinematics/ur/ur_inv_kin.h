@@ -65,6 +65,9 @@ public:
 
   bool update() override;
 
+  void synchronize(ForwardKinematics::ConstPtr fwd_kin) override;
+  bool isSynchronized() const override;
+
   tesseract_kinematics::IKSolutions calcInvKin(const Eigen::Isometry3d& pose,
                                                const Eigen::Ref<const Eigen::VectorXd>& seed) const override;
 
@@ -114,18 +117,14 @@ public:
   bool checkInitialized() const;
 
 protected:
-  bool initialized_{ false };                  /**< @brief Identifies if the object has been initialized */
-  URParameters params_;                        /**< @brief The UR Inverse kinematics parameters */
-  std::string base_link_name_;                 /**< @brief Kinematic base link name */
-  std::string tip_link_name_;                  /**< @brief Kinematic tip link name */
-  tesseract_common::KinematicLimits limits_;   /**< @brief Joint Limits, velocity limits, and acceleration limits */
-  std::vector<std::string> joint_names_;       /**< @brief joint names */
-  std::vector<std::string> link_names_;        /**< @brief link names */
-  std::vector<std::string> active_link_names_; /**< @brief active link names */
-  std::string name_;                           /**< @brief Name of the kinematic chain */
-  std::string solver_name_{ "URInvKin" };      /**< @brief Name of this solver */
-  std::vector<Eigen::Index> redundancy_indices_{ 0, 1, 2, 3, 4, 5 }; /**< Joint indicies that have redundancy (ex.
-                                                                        revolute) */
+  bool initialized_{ false };                /**< @brief Identifies if the object has been initialized */
+  URParameters params_;                      /**< @brief The UR Inverse kinematics parameters */
+  ForwardKinematics::ConstPtr sync_fwd_kin_; /**< @brief Synchronized forward kinematics object */
+  std::vector<Eigen::Index> sync_joint_map_; /**< @brief Synchronized joint solution remapping */
+  SynchronizableData data_;                  /**< @brief The current data that may be synchronized */
+  SynchronizableData orig_data_;             /**< @brief The data prior to synchronization */
+  std::string name_;                         /**< @brief Name of the kinematic chain */
+  std::string solver_name_{ "URInvKin" };    /**< @brief Name of this solver */
 
   /**
    * @brief This used by the clone method

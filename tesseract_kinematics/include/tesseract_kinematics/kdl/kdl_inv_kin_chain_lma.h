@@ -37,6 +37,7 @@ TESSERACT_COMMON_IGNORE_WARNINGS_PUSH
 TESSERACT_COMMON_IGNORE_WARNINGS_POP
 
 #include <tesseract_kinematics/core/inverse_kinematics.h>
+#include <tesseract_kinematics/core/types.h>
 #include <tesseract_kinematics/kdl/kdl_utils.h>
 
 #ifdef SWIG
@@ -68,6 +69,9 @@ public:
   InverseKinematics::Ptr clone() const override;
 
   bool update() override;
+
+  void synchronize(ForwardKinematics::ConstPtr fwd_kin) override;
+  bool isSynchronized() const override;
 
   IKSolutions calcInvKin(const Eigen::Isometry3d& pose, const Eigen::Ref<const Eigen::VectorXd>& seed) const override;
 
@@ -134,12 +138,15 @@ public:
   bool checkInitialized() const;
 
 private:
-  bool initialized_{ false };                               /**< Identifies if the object has been initialized */
-  tesseract_scene_graph::SceneGraph::ConstPtr scene_graph_; /**< Tesseract Scene Graph */
-  KDLChainData kdl_data_;                                   /**< KDL data parsed from Scene Graph */
-  std::string name_;                                        /**< Name of the kinematic chain */
-  std::string solver_name_{ "KDLInvKinChainLMA" };          /**< Name of this solver */
-  std::unique_ptr<KDL::ChainIkSolverPos_LMA> ik_solver_;    /**< KDL Inverse kinematic solver */
+  bool initialized_{ false };                               /**< @brief Identifies if the object has been initialized */
+  tesseract_scene_graph::SceneGraph::ConstPtr scene_graph_; /**< @brief Tesseract Scene Graph */
+  ForwardKinematics::ConstPtr sync_fwd_kin_;                /**< @brief Synchronized forward kinematics object */
+  std::vector<Eigen::Index> sync_joint_map_;                /**< @brief Synchronized joint solution remapping */
+  KDLChainData kdl_data_;                                   /**< @brief KDL data parsed from Scene Graph */
+  SynchronizableData orig_data_;                            /**< @brief The data prior to synchronization */
+  std::string name_;                                        /**< @brief Name of the kinematic chain */
+  std::string solver_name_{ "KDLInvKinChainLMA" };          /**< @brief Name of this solver */
+  std::unique_ptr<KDL::ChainIkSolverPos_LMA> ik_solver_;    /**< @brief KDL Inverse kinematic solver */
 
   /**
    * @brief This used by the clone method

@@ -44,7 +44,10 @@ ForwardKinematics::Ptr KDLFwdKinChain::clone() const
   return cloned_fwdkin;
 }
 
-bool KDLFwdKinChain::update() { return init(scene_graph_, kdl_data_.base_name, kdl_data_.tip_name, name_); }
+bool KDLFwdKinChain::update()
+{
+  return init(scene_graph_, kdl_data_.data.base_link_name, kdl_data_.data.tip_link_name, name_);
+}
 
 Eigen::Isometry3d KDLFwdKinChain::calcFwdKinHelper(const Eigen::Ref<const Eigen::VectorXd>& joint_angles,
                                                    int segment_num) const
@@ -189,13 +192,13 @@ bool KDLFwdKinChain::checkJoints(const Eigen::Ref<const Eigen::VectorXd>& vec) c
 
   for (int i = 0; i < vec.size(); ++i)
   {
-    if ((vec[i] < kdl_data_.limits.joint_limits(i, 0)) || (vec(i) > kdl_data_.limits.joint_limits(i, 1)))
+    if ((vec[i] < kdl_data_.data.limits.joint_limits(i, 0)) || (vec(i) > kdl_data_.data.limits.joint_limits(i, 1)))
     {
       CONSOLE_BRIDGE_logDebug("Joint %s is out-of-range (%g < %g < %g)",
-                              kdl_data_.joint_list[static_cast<size_t>(i)].c_str(),
-                              kdl_data_.limits.joint_limits(i, 0),
+                              kdl_data_.data.joint_names[static_cast<size_t>(i)].c_str(),
+                              kdl_data_.data.limits.joint_limits(i, 0),
                               vec(i),
-                              kdl_data_.limits.joint_limits(i, 1));
+                              kdl_data_.data.limits.joint_limits(i, 1));
       return false;
     }
   }
@@ -206,22 +209,22 @@ bool KDLFwdKinChain::checkJoints(const Eigen::Ref<const Eigen::VectorXd>& vec) c
 const std::vector<std::string>& KDLFwdKinChain::getJointNames() const
 {
   assert(checkInitialized());
-  return kdl_data_.joint_list;
+  return kdl_data_.data.joint_names;
 }
 
 const std::vector<std::string>& KDLFwdKinChain::getLinkNames() const
 {
   assert(checkInitialized());
-  return kdl_data_.link_list;
+  return kdl_data_.data.link_names;
 }
 
 const std::vector<std::string>& KDLFwdKinChain::getActiveLinkNames() const
 {
   assert(checkInitialized());
-  return kdl_data_.active_link_list;
+  return kdl_data_.data.active_link_names;
 }
 
-const tesseract_common::KinematicLimits& KDLFwdKinChain::getLimits() const { return kdl_data_.limits; }
+const tesseract_common::KinematicLimits& KDLFwdKinChain::getLimits() const { return kdl_data_.data.limits; }
 
 void KDLFwdKinChain::setLimits(tesseract_common::KinematicLimits limits)
 {
@@ -230,21 +233,21 @@ void KDLFwdKinChain::setLimits(tesseract_common::KinematicLimits limits)
       limits.acceleration_limits.size() != nj)
     throw std::runtime_error("Kinematics limits assigned are invalid!");
 
-  kdl_data_.limits = std::move(limits);
+  kdl_data_.data.limits = std::move(limits);
 }
 
 std::vector<Eigen::Index> KDLFwdKinChain::getRedundancyCapableJointIndices() const
 {
-  return kdl_data_.redundancy_indices;
+  return kdl_data_.data.redundancy_indices;
 }
 
 tesseract_scene_graph::SceneGraph::ConstPtr KDLFwdKinChain::getSceneGraph() const { return scene_graph_; }
 
 unsigned int KDLFwdKinChain::numJoints() const { return kdl_data_.robot_chain.getNrOfJoints(); }
 
-const std::string& KDLFwdKinChain::getBaseLinkName() const { return kdl_data_.base_name; }
+const std::string& KDLFwdKinChain::getBaseLinkName() const { return kdl_data_.data.base_link_name; }
 
-const std::string& KDLFwdKinChain::getTipLinkName() const { return kdl_data_.tip_name; }
+const std::string& KDLFwdKinChain::getTipLinkName() const { return kdl_data_.data.tip_link_name; }
 
 const std::string& KDLFwdKinChain::getName() const { return name_; }
 
